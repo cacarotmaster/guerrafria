@@ -32,7 +32,7 @@ npm run dev
 
 ```sh
 npm run build
-# genera la carpeta dist/ (base configurada para GitHub Pages: /gamificacion/)
+# genera la carpeta dist/ (base configurada para GitHub Pages: /guerrafria/)
 ```
 
 ---
