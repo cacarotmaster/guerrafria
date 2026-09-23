@@ -4,17 +4,20 @@ import { RoleSelector } from "../components/RoleSelector";
 import { GameHeader } from "../components/GameHeader";
 import { ROLES, MISSIONS, buildResult } from "../game/missions";
 import type { GameState } from "../game/types";
+import { CLASSROOM_REFLECTION, REFLECTION_QUESTIONS } from "../game/types";
 
 const STORAGE_KEY = "guerra-fria-mision-secreta-v1";
 
 const initialState = (): GameState => ({
   fase: "inicio",
+  playerName: "",
   rol: null,
   score: 0,
   lives: 3,
   badges: [],
   missionIndex: 0,
   sceneIndex: 0,
+  completedMissions: 0,
 });
 
 export default function Index() {
@@ -88,13 +91,14 @@ export default function Index() {
       }
       if (isLastScene && state.missionIndex >= MISSIONS.length - 1) {
         saveBest(score);
-        setState((s) => ({ ...s, score, lives, badges, fase: "final" }));
+        setState((s) => ({ ...s, score, lives, badges, completedMissions: s.completedMissions + 1, fase: "final" }));
       } else if (isLastScene) {
         setState((s) => ({
           ...s,
           score,
           lives,
           badges,
+          completedMissions: s.completedMissions + 1,
           missionIndex: s.missionIndex + 1,
           sceneIndex: 0,
           fase: "ficha",
@@ -142,8 +146,21 @@ export default function Index() {
                 </span>
               ))}
             </div>
+            <div className="flex flex-col items-center w-full max-w-md mb-5">
+              <label className="text-muted-foreground mb-2 text-sm opacity-80">
+                🪪 Nombre de agente (aparece en tu Reporte)
+              </label>
+              <input
+                className="w-full bg-card border-2 border-primary/40 rounded-lg px-4 py-3 text-lg text-center text-white placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition"
+                placeholder="Escribe tu nombre o apodo"
+                value={state.playerName}
+                maxLength={40}
+                onChange={(e) => setState((s) => ({ ...s, playerName: e.target.value }))}
+              />
+            </div>
             <button
-              className="bg-primary hover:bg-red-900 text-primary-foreground rounded-lg px-10 py-5 font-bold text-2xl shadow-xl transition-all animate-scale-in hover:scale-105"
+              className="bg-primary hover:bg-red-900 text-primary-foreground rounded-lg px-10 py-5 font-bold text-2xl shadow-xl transition-all animate-scale-in hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!state.playerName.trim()}
               onClick={() => setState((s) => ({ ...s, fase: "rol" }))}
             >
               Iniciar Misión
@@ -259,34 +276,70 @@ export default function Index() {
 
 function renderResult(state: GameState, bestScore: number, reset: () => void) {
   const result = buildResult(state.score, state.lives);
+  const rolItem = ROLES.find((r) => r.id === state.rol);
+  const rol = rolItem?.label ?? "—";
+
+  const copyReport = async () => {
+    const text = [
+      "🪪 REPORTE DE AGENTE — Guerra Fría: Misión Secreta",
+      `Agente: ${state.playerName || "—"}`,
+      `Rol: ${rolItem?.icon ?? ""} ${rol}`,
+      `Poder Geopolítico: ${state.score}`,
+      `Vidas restantes: ${state.lives}`,
+      `Misiones superadas: ${state.completedMissions}/${MISSIONS.length}`,
+      `Insignias: ${state.badges.length}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* portapapeles no disponible */
+    }
+  };
+
   return (
     <>
-      <div className="text-6xl mb-3">{result.emoji}</div>
-      <h2 className={`text-3xl font-bold font-mono mb-3 ${result.color}`}>
-        {state.lives <= 0 ? "❌" : "🏁"} {result.title}
-      </h2>
-      <p className="text-xl text-muted-foreground mb-4 leading-relaxed">{result.message}</p>
+      <div className="w-full flex items-center justify-center gap-3 mb-2">
+        <span className="text-4xl">🪪</span>
+        <h2 className="text-3xl font-bold font-mono text-white">REPORTE DE AGENTE</h2>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4 opacity-80">
+        📋 Muestra este reporte a tu docente (evaluación <b>SABER</b>).
+      </p>
 
-      <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-4">
-        <div className="bg-black/20 rounded-lg p-4">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Poder Geopolítico</div>
-          <div
-            className={`text-4xl font-mono font-bold ${state.score >= 0 ? "text-green-600" : "text-red-500"}`}
-          >
-            {state.score}
-          </div>
+      <div className={`text-4xl mb-2 ${result.color}`}>{result.emoji}</div>
+      <h3 className={`text-2xl font-bold font-mono mb-2 ${result.color}`}>{result.title}</h3>
+      <p className="text-base text-muted-foreground mb-4 leading-relaxed">{result.message}</p>
+
+      {/* Datos del agente */}
+      <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4 text-left">
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Agente</div>
+          <div className="text-lg font-bold text-white truncate">{state.playerName || "—"}</div>
         </div>
-        <div className="bg-black/20 rounded-lg p-4">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Vidas restantes</div>
-          <div className="text-4xl font-mono font-bold">
-            {state.lives > 0 ? "❤️".repeat(state.lives) : "💔"}
-          </div>
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Rol</div>
+          <div className="text-lg font-bold">{rolItem?.icon} {rol}</div>
+        </div>
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Poder Geopolítico</div>
+          <div className={`text-2xl font-mono font-bold ${state.score >= 0 ? "text-green-600" : "text-red-500"}`}>{state.score}</div>
+        </div>
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Misiones</div>
+          <div className="text-2xl font-mono font-bold">{state.completedMissions}/{MISSIONS.length}</div>
+        </div>
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Vidas</div>
+          <div className="text-2xl font-mono font-bold">{state.lives > 0 ? "❤️".repeat(state.lives) : "💔"}</div>
+        </div>
+        <div className="bg-black/20 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Insignias</div>
+          <div className="text-2xl font-mono font-bold">🏅 {state.badges.length}</div>
         </div>
       </div>
 
       {state.badges.length > 0 && (
         <div className="mb-4 text-left w-full max-w-md">
-          <div className="text-sm uppercase tracking-widest text-muted-foreground mb-2">🏅 Insignias ganadas</div>
           <div className="flex flex-wrap gap-2">
             {state.badges.map((b) => (
               <span
@@ -305,14 +358,51 @@ function renderResult(state: GameState, bestScore: number, reset: () => void) {
         </div>
       )}
 
-      <div className="mb-6 text-muted-foreground">Tu mejor puntaje: <b>{bestScore}</b></div>
+      <div className="mb-4 text-muted-foreground text-sm">Tu mejor puntaje: <b>{bestScore}</b></div>
 
-      <button
-        className="bg-primary text-primary-foreground rounded-lg px-8 py-4 font-bold hover:scale-105 transition shadow"
-        onClick={reset}
-      >
-        🔄 Jugar de nuevo
-      </button>
+      {/* Reflexión en Classroom */}
+      <div className="w-full rounded-xl border border-primary/30 bg-black/20 p-4 mb-4 text-left">
+        <div className="font-bold text-white mb-2">✍️ Reflexión en Google Classroom</div>
+        <p className="text-sm text-muted-foreground mb-2">
+          Elige <b>UNA</b> de las 4 crisis y responde en Classroom (4 puntos · PERIODO 3):
+        </p>
+        <ol className="text-sm text-muted-foreground list-decimal list-inside mb-3 space-y-1">
+          {REFLECTION_QUESTIONS.map((q, i) => (
+            <li key={i}>{q}</li>
+          ))}
+        </ol>
+        <div className="flex flex-col gap-2">
+          {CLASSROOM_REFLECTION.map((c) => (
+            <a
+              key={c.url}
+              href={c.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold rounded-lg py-3 text-center transition"
+            >
+              📚 Abrir {c.label} ▶
+            </a>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2 opacity-70">
+          Se abre en una pestaña nueva · selecciona tu grupo.
+        </p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+        <button
+          className="flex-1 bg-primary text-primary-foreground rounded-lg px-6 py-3 font-bold hover:scale-105 transition shadow"
+          onClick={copyReport}
+        >
+          📋 Copiar reporte
+        </button>
+        <button
+          className="flex-1 bg-background border border-primary text-white rounded-lg px-6 py-3 font-bold hover:scale-105 transition shadow"
+          onClick={reset}
+        >
+          🔄 Jugar de nuevo
+        </button>
+      </div>
     </>
   );
 }
